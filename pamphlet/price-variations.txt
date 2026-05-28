@@ -1,0 +1,27 @@
+Hambelela Organic price variations found on product pages
+Checked: 2026-05-19
+
+Castor Oil
+50ml: N$43, in stock
+100ml: N$80, in stock
+500ml: N$180, in stock
+1 liter: N$366, out of stock
+
+Unrefined Shea Butter
+250g: N$130, out of stock
+500g: N$240, out of stock
+1kg: N$445, out of stock
+
+Hibiscus Flowers
+50g: N$58, in stock
+100g: N$105, in stock
+500g: N$505, in stock
+
+Batana Oil
+100ml: N$128, in stock
+500ml: N$538, in stock
+
+Chia Seeds
+100g: N$36, in stock
+500g: N$120, in stock
+1kg: N$263, out of stock
