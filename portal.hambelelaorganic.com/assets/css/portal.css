@@ -3940,17 +3940,18 @@ textarea {
 
 .cash-label {
   min-height: 30px;
-  color: #fff;
+  border: 1px solid rgba(0, 128, 82, 0.22);
+  color: #047857;
   font-size: 12px;
   font-weight: 700;
 }
 
-.cash-type-opening_balance { background: #2f80ed; }
-.cash-type-cash_received { background: #00c875; }
-.cash-type-driver_cash_returned { background: #00a699; }
-.cash-type-cash_taken_out { background: #e2445c; }
-.cash-type-deposit { background: #7c3aed; }
-.cash-type-closing_count { background: #676879; }
+.cash-type-opening_balance { background: #eaf3ff; }
+.cash-type-cash_received { background: #e8fbf1; }
+.cash-type-driver_cash_returned { background: #e6fbf8; }
+.cash-type-cash_taken_out { background: #fff0ed; }
+.cash-type-deposit { background: #f1e9ff; }
+.cash-type-closing_count { background: #eef1f7; }
 
 .unlogged-cash-panel {
   margin-bottom: 16px;
