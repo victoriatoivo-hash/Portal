@@ -20,7 +20,7 @@ $migrationReady = $ready
 $canManage = user_has_role('owner_admin', 'front_desk_admin', 'supervisor_manager');
 $canEditHeaders = user_has_role('owner_admin');
 $assetVersion = is_file(BASE_PATH . '/assets/js/packing-list.js')
-    ? (string) filemtime(BASE_PATH . '/assets/js/packing-list.js') . '-monday-sync'
+    ? (string) filemtime(BASE_PATH . '/assets/js/packing-list.js') . '-redistribute-packers'
     : (string) time();
 
 include BASE_PATH . '/shared/header.php';
@@ -111,6 +111,7 @@ include BASE_PATH . '/shared/sidebar.php';
                 <?php if ($canManage): ?>
                     <button type="button" data-open-packing-create><i data-lucide="plus"></i> New item</button>
                     <button type="button" data-open-invoice><i data-lucide="upload"></i> Upload invoice</button>
+                    <button type="button" data-sync-monday-packing><i data-lucide="download-cloud"></i> Sync Monday</button>
                     <button type="button" data-import-previous-packing><i data-lucide="copy-plus"></i> Import previous list</button>
                 <?php endif; ?>
                 <button type="button" data-packing-refresh><i data-lucide="refresh-cw"></i> Refresh</button>
@@ -209,12 +210,13 @@ include BASE_PATH . '/shared/sidebar.php';
             <div class="ops-form-actions">
                 <button class="button" type="button" data-extract-invoice><i data-lucide="scan-text"></i> Extract invoice</button>
                 <button class="button" type="button" data-add-draft-row><i data-lucide="plus"></i> Add row</button>
+                <button class="button" type="button" data-redistribute-packers><i data-lucide="shuffle"></i> Redistribute Packers</button>
             </div>
             <label>Manual fallback<textarea name="invoice_draft" rows="4" placeholder="Product | received weight | quantity to pack, e.g. Mango Butter | 5kg | 100g(20), 250g(8)"></textarea></label>
             <div class="invoice-draft-wrap">
                 <table class="invoice-draft-table">
-                    <thead><tr><th>Item</th><th>Received</th><th>Unit</th><th>Quantity to pack</th><th>Assigned</th><th>Workload</th><th></th></tr></thead>
-                    <tbody data-invoice-draft-body><tr><td colspan="7">Extract an invoice or add a row to review before saving.</td></tr></tbody>
+                    <thead><tr><th>Item</th><th>Received</th><th>Unit</th><th>Quantity to pack</th><th>Assigned</th><th>Workload</th><th>Monday</th><th>Actions</th></tr></thead>
+                    <tbody data-invoice-draft-body><tr><td colspan="8">Extract an invoice or add a row to review before saving.</td></tr></tbody>
                 </table>
             </div>
             <p class="muted" data-invoice-assignment-summary>Rows will be assigned fairly without splitting a product line between packers.</p>

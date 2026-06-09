@@ -17,7 +17,7 @@ return [
     'wc_consumer_secret' => 'paste-new-read-only-consumer-secret-here',
 
     'monday_api_token' => 'paste-your-monday-api-token-here',
-    'monday_packing_board_id' => 'paste-packing-board-id-here',
+    'monday_packing_board_id' => '1590283675',
     'monday_packing_group_id' => 'topics',
     'monday_packing_columns' => [
         'received_weight' => 'received_weight',

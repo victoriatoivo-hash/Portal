@@ -3883,6 +3883,86 @@ textarea {
   pointer-events: none;
 }
 
+.is-spinning {
+  animation: hambelela-spin 0.8s linear infinite;
+}
+
+@keyframes hambelela-spin {
+  to { transform: rotate(360deg); }
+}
+
+.assignment-review-head,
+.assignment-review-grid,
+.assignment-review-message {
+  display: block;
+}
+
+.assignment-review-head {
+  margin-bottom: 10px;
+}
+
+.assignment-review-head small,
+.assignment-review-card em,
+.assignment-review-message {
+  color: var(--muted);
+  font-style: normal;
+}
+
+.assignment-review-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.assignment-review-card {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.assignment-review-card strong {
+  color: #1677ff;
+  font-size: 20px;
+}
+
+.draft-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.draft-actions button {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.draft-actions svg {
+  width: 15px;
+  height: 15px;
+}
+
+.sync-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #efe7ff;
+  color: #4b189b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .packing-table .board-label {
   min-width: 0;
   font-size: 12px;
