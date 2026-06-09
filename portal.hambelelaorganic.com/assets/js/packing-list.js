@@ -15,6 +15,7 @@
   const invoiceModal = document.getElementById('packing-invoice-modal');
   const invoiceDraftBody = document.querySelector('[data-invoice-draft-body]');
   const invoiceStatus = document.querySelector('[data-invoice-extract-status]');
+  const invoiceAssignmentSummary = document.querySelector('[data-invoice-assignment-summary]');
 
   if (!body || !config.dataUrl || !config.actionUrl) return;
 
@@ -195,6 +196,22 @@
     return `<label class="paid-toggle"><input type="checkbox" data-packing-check="${esc(field)}" data-task-id="${esc(task.id)}" ${checked} ${disabled}><span>&check;</span></label>`;
   }
 
+  function renderMondaySync(task) {
+    const status = normalize(task.monday_sync_status || 'not_synced');
+    const labels = {
+      synced: ['Synced', '#00c875'],
+      sync_failed: ['Failed', '#d94848'],
+      updated: ['Updated', '#ffad3b'],
+      not_synced: ['Not synced', '#8c92a6']
+    };
+    const [text, color] = labels[status] || labels.not_synced;
+    const retry = currentUser.can_manage && ['sync_failed', 'updated', 'not_synced'].includes(status)
+      ? `<button type="button" class="mini-action" title="Retry Monday sync" data-retry-monday-sync="${esc(task.id)}"><i data-lucide="refresh-cw"></i></button>`
+      : '';
+    const error = task.monday_sync_error ? ` title="${esc(task.monday_sync_error)}"` : '';
+    return `<div class="sync-status-cell"${error}><span class="board-label" style="--label-color:${esc(color)}">${esc(text)}</span>${retry}</div>`;
+  }
+
   function setInvoiceStatus(message) {
     if (invoiceStatus) invoiceStatus.textContent = message;
   }
@@ -204,7 +221,10 @@
     const unitMatches = [...quantityPlan.matchAll(/\((\d+)\)|x\s*(\d+)/gi)];
     const units = unitMatches.reduce((sum, match) => sum + Number(match[1] || match[2] || 0), 0);
     const sizes = (quantityPlan.match(/\d+(?:\.\d+)?\s*(?:g|kg|ml|l|lt|liter|litre)/gi) || []).length;
-    const weight = Number(String(row.received_weight || '').match(/\d+(?:\.\d+)?/)?.[0] || 0);
+    const weightMatch = String(row.received_weight || '').match(/(\d+(?:\.\d+)?)\s*(kg|g|ml|l|lt|liter|litre)?/i);
+    let weight = Number(weightMatch?.[1] || 0);
+    const unit = String(weightMatch?.[2] || 'kg').toLowerCase();
+    if (unit === 'g' || unit === 'ml') weight /= 1000;
     return Math.max(1, Math.round((weight + units * 0.2 + sizes * 0.8 + 1.5) * 10) / 10);
   }
 
@@ -225,6 +245,13 @@
         loads.set(String(best.id), (loads.get(String(best.id)) || 0) + row.workload);
       }
     });
+    if (invoiceAssignmentSummary) {
+      const split = [...new Set(invoiceDraftRows.map((row) => row.assigned_name || 'Auto assign'))].join(', ');
+      const totalWorkload = invoiceDraftRows.reduce((sum, row) => sum + Number(row.workload || 0), 0).toFixed(1);
+      invoiceAssignmentSummary.textContent = invoiceDraftRows.length
+        ? `${invoiceDraftRows.length} product line(s), estimated workload ${totalWorkload}. Product lines stay together. Assigned to: ${split}.`
+        : 'Rows will be assigned fairly without splitting a product line between packers.';
+    }
   }
 
   function parseManualDraft(text) {
@@ -312,6 +339,7 @@
         <td>${esc(formatDate(task.date_loaded))}</td>
         <td><input class="board-inline-input" data-packing-text="quantity_planned" data-task-id="${esc(task.id)}" value="${esc(task.quantity_planned || '')}"></td>
         <td>${renderPerson(task)}</td>
+        <td>${renderMondaySync(task)}</td>
         <td><input class="board-inline-input" data-packing-text="quantity_packed" data-task-id="${esc(task.id)}" value="${esc(task.quantity_packed || '')}" placeholder="Actual"></td>
         <td>${renderLabel(task, 'packing_status', task.packing_status || 'not_started', statuses)}</td>
         <td class="paid-cell">${renderCheck(task, 'website_uploaded', currentUser.can_edit_front_website)}</td>
@@ -321,17 +349,17 @@
     `).join('');
 
     const addRow = currentUser.can_manage
-      ? '<tr class="add-task-row"><td></td><td colspan="12"><button type="button" data-open-packing-create>+ Add item</button></td></tr>'
+      ? '<tr class="add-task-row"><td></td><td colspan="13"><button type="button" data-open-packing-create>+ Add item</button></td></tr>'
       : '';
 
     return `
-      <tr class="group-row"><td colspan="13"><button type="button" data-packing-collapse><i data-lucide="chevron-down"></i>${esc(groupLabel(key))}</button></td></tr>
+      <tr class="group-row"><td colspan="14"><button type="button" data-packing-collapse><i data-lucide="chevron-down"></i>${esc(groupLabel(key))}</button></td></tr>
       ${bodyRows}
       ${addRow}
       <tr class="summary-row">
         <td></td><td><span class="summary-pill">${esc(groupLabel(key))}</span></td><td></td><td>${rows.length} items</td>
         <td colspan="2">Done: ${groupSummary.done}</td><td>Not started: ${groupSummary.notStarted}</td><td>Packing: ${groupSummary.packing}</td>
-        <td colspan="2">Website: ${groupSummary.website}/${rows.length}</td><td colspan="3">${esc(groupSummary.split)}</td>
+        <td colspan="2">Website: ${groupSummary.website}/${rows.length}</td><td colspan="4">${esc(groupSummary.split)}</td>
       </tr>
     `;
   }
@@ -351,7 +379,7 @@
           <button type="button" data-open-invoice><i data-lucide="upload"></i> Upload invoice</button>
           <button type="button" data-import-previous-packing><i data-lucide="copy-plus"></i> Import from previous list</button>
         </div>` : '';
-      body.innerHTML = `<tr><td colspan="13"><div class="board-empty-state"><strong>${esc(message)}${hasFilters ? ' Clear filters to see all rows.' : ''}</strong>${actions}</div></td></tr>`;
+      body.innerHTML = `<tr><td colspan="14"><div class="board-empty-state"><strong>${esc(message)}${hasFilters ? ' Clear filters to see all rows.' : ''}</strong>${actions}</div></td></tr>`;
       setCount(tasks.length ? `${tasks.length} total item${tasks.length === 1 ? '' : 's'} loaded` : `${totalRows} packing rows in database`);
       updateMetrics(visible);
       updateSelection();
@@ -399,7 +427,7 @@
       currentUser = data.currentUser || {};
       fillPackerSelects();
       if (!data.migrationReady) {
-      body.innerHTML = '<tr><td colspan="13">Import operations-packing-list-migration.sql first.</td></tr>';
+      body.innerHTML = '<tr><td colspan="14">Import operations-packing-list-migration.sql and operations-packing-monday-sync-migration.sql first.</td></tr>';
         setCount('Packing migration required');
         updateMetrics([]);
         return;
@@ -453,6 +481,8 @@
         <div><span>Quantity to pack</span><strong>${esc(currentTask.quantity_planned || 'Not entered')}</strong></div>
         <div><span>Quantity packed</span><strong>${esc(currentTask.quantity_packed || 'Not entered')}</strong></div>
         <div><span>Assigned</span><strong>${esc(currentTask.assigned_name || 'Unassigned')}</strong></div>
+        <div><span>Monday sync</span><strong>${esc(labelText([['synced', 'Synced'], ['sync_failed', 'Failed'], ['updated', 'Updated'], ['not_synced', 'Not synced']], currentTask.monday_sync_status || 'not_synced'))}</strong></div>
+        <div><span>Monday item</span><strong>${esc(currentTask.monday_item_id || 'Not linked')}</strong></div>
         <div><span>Status</span><strong>${esc(labelText(statuses, currentTask.packing_status || 'not_started'))}</strong></div>
         <div><span>Website updated</span><strong>${Number(currentTask.website_uploaded || 0) === 1 ? 'Yes' : 'No'}</strong></div>
         <div><span>Packing website confirmed</span><strong>${Number(currentTask.packing_website_confirmed || 0) === 1 ? 'Yes' : 'No'}</strong></div>
@@ -460,6 +490,9 @@
         <div><span>Date completed</span><strong>${esc(formatDate(currentTask.date_completed) || 'Not complete')}</strong></div>
         <div><span>Time taken</span><strong>${esc(duration(currentTask.date_started || currentTask.date_loaded, currentTask.date_completed) || 'Not complete')}</strong></div>
         <div><span>Workload</span><strong>${esc(currentTask.workload_points || '')}</strong></div>
+        <div><span>Invoice</span><strong>${esc(currentTask.invoice_number || 'Not recorded')}</strong></div>
+        <div><span>Supplier</span><strong>${esc(currentTask.supplier_name || 'Not recorded')}</strong></div>
+        ${currentTask.monday_sync_error ? `<div><span>Sync error</span><strong>${esc(currentTask.monday_sync_error)}</strong></div>` : ''}
       </div>
     `;
     panel.classList.add('open');
@@ -478,10 +511,10 @@
   }
 
   function exportPackingRows(rows, filename) {
-    const headers = ['Item', 'Received Weight', 'Priority', 'Date Loaded', 'Quantity To Pack', 'Person Responsible', 'Quantity Packed', 'Date Completed', 'Website Updated', 'Packing Website Confirmed', 'Status', 'Notes'];
+    const headers = ['Item', 'Invoice Number', 'Supplier', 'Received Weight', 'Priority', 'Date Loaded', 'Quantity To Pack', 'Person Responsible', 'Monday Sync', 'Monday Item ID', 'Quantity Packed', 'Date Completed', 'Website Updated', 'Packing Website Confirmed', 'Status', 'Notes'];
     const csvRows = [headers, ...rows.map((task) => [
-      task.item_name, task.received_weight, labelText(priorities, task.priority), formatDate(task.date_loaded), task.quantity_planned,
-      task.assigned_name, task.quantity_packed, formatDate(task.date_completed), task.website_uploaded, task.packing_website_confirmed,
+      task.item_name, task.invoice_number, task.supplier_name, task.received_weight, labelText(priorities, task.priority), formatDate(task.date_loaded), task.quantity_planned,
+      task.assigned_name, task.monday_sync_status, task.monday_item_id, task.quantity_packed, formatDate(task.date_completed), task.website_uploaded, task.packing_website_confirmed,
       labelText(statuses, task.packing_status), task.notes
     ])];
     const csv = csvRows.map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
@@ -567,8 +600,10 @@
       invoiceDraftRows = (data.rows || []).map((row) => ({ ...row, assigned_employee_id: '', assigned_name: '' }));
       const invoiceNumber = document.querySelector('[data-draft-invoice-number]');
       const invoiceDate = document.querySelector('[data-draft-invoice-date]');
+      const invoicePath = document.querySelector('[data-draft-invoice-path]');
       if (invoiceNumber) invoiceNumber.value = data.invoice_number || '';
       if (invoiceDate) invoiceDate.value = data.invoice_date || '';
+      if (invoicePath) invoicePath.value = data.invoice_file_path || '';
       renderInvoiceDraft();
       setInvoiceStatus(`${data.message} Review rows, enter quantity-to-pack breakdown, then confirm.`);
     } finally {
@@ -582,18 +617,33 @@
       renderInvoiceDraft();
     }
     if (!invoiceDraftRows.length) throw new Error('No invoice rows to create.');
-    for (const row of invoiceDraftRows) {
-      if (!row.item_name) continue;
-      await post('create', {
-        item_name: row.item_name,
+
+    const formData = new FormData(form);
+    const payload = {
+      supplier_name: formData.get('supplier_name') || '',
+      invoice_number: formData.get('invoice_number') || '',
+      invoice_date: formData.get('invoice_date') || '',
+      invoice_file_path: formData.get('invoice_file_path') || '',
+      priority: formData.get('priority') || 'medium',
+      rows: JSON.stringify(invoiceDraftRows.map((row) => ({
+        item_name: row.item_name || '',
         received_weight: row.received_weight || '',
+        unit: row.unit || '',
+        quantity_purchased: row.quantity_purchased || '',
         quantity_planned: row.quantity_planned || '',
-        priority: 'high',
-        date_loaded: new Date().toISOString().slice(0, 19).replace('T', ' '),
-        assigned_employee_id: row.assigned_employee_id || '',
-        notes: `Created from invoice review${row.unit ? `\nUnit: ${row.unit}` : ''}${row.quantity_purchased ? `\nInvoice quantity: ${row.quantity_purchased}` : ''}`
-      });
+        assigned_employee_id: row.assigned_employee_id || ''
+      })))
+    };
+    let data = await post('confirm_invoice_sync', payload);
+    if (data.needs_confirmation) {
+      const proceed = window.confirm(data.message || 'Some rows may already exist. Continue?');
+      if (!proceed) {
+        setInvoiceStatus('Duplicate warning cancelled. Nothing was created.');
+        return;
+      }
+      data = await post('confirm_invoice_sync', { ...payload, confirm_duplicates: '1' });
     }
+    setInvoiceStatus(data.message || 'Packing rows created.');
     invoiceDraftRows = [];
     invoiceModal.hidden = true;
     await refresh();
@@ -622,10 +672,18 @@
     const removeDraftRow = event.target.closest('[data-remove-draft-row]');
     const themeToggle = event.target.closest('[data-theme-toggle]');
     const bulkAction = event.target.closest('[data-packing-bulk-action]');
+    const retryMonday = event.target.closest('[data-retry-monday-sync]');
 
     try {
       if (bulkAction) {
         await runPackingBulkAction(bulkAction.dataset.packingBulkAction);
+        return;
+      }
+
+      if (retryMonday) {
+        retryMonday.classList.add('is-loading');
+        await post('retry_monday_sync', { task_id: retryMonday.dataset.retryMondaySync });
+        await refresh();
         return;
       }
 
@@ -720,7 +778,7 @@
         }
       }
     } catch (error) {
-      body.innerHTML = `<tr><td colspan="13">${esc(error.message)}</td></tr>`;
+      body.innerHTML = `<tr><td colspan="14">${esc(error.message)}</td></tr>`;
     }
   });
 
@@ -786,7 +844,7 @@
           await updateTasksField(selectedIdsFor(text.dataset.taskId), text.dataset.packingText, text.value);
           render();
         } catch (error) {
-          body.innerHTML = `<tr><td colspan="13">${esc(error.message)}</td></tr>`;
+          body.innerHTML = `<tr><td colspan="14">${esc(error.message)}</td></tr>`;
         }
       }
     }
@@ -808,7 +866,7 @@
       if (createForm) await createFromForm(createForm);
       if (invoiceForm) await createInvoiceDraft(invoiceForm);
     } catch (error) {
-      body.innerHTML = `<tr><td colspan="13">${esc(error.message)}</td></tr>`;
+      body.innerHTML = `<tr><td colspan="14">${esc(error.message)}</td></tr>`;
     }
   });
 
@@ -825,7 +883,7 @@
     });
   } catch (error) {}
   refresh().catch((error) => {
-    body.innerHTML = `<tr><td colspan="13">${esc(error.message)}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="14">${esc(error.message)}</td></tr>`;
     setCount('Could not load packing list');
     updateMetrics([]);
   });

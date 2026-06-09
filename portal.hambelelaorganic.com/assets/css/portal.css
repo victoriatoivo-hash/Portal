@@ -971,6 +971,28 @@ textarea {
   grid-column: span 2;
 }
 
+.notice {
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.74);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.notice.warning {
+  border-color: rgba(245, 158, 11, 0.42);
+  background: rgba(255, 251, 235, 0.9);
+}
+
+.notice.danger {
+  border-color: rgba(220, 38, 38, 0.35);
+  background: rgba(254, 242, 242, 0.92);
+  color: #991b1b;
+}
+
 .inline-fields {
   display: grid;
   grid-template-columns: 1fr 120px;
@@ -3819,15 +3841,47 @@ textarea {
 .packing-table th:nth-child(8),
 .packing-table td:nth-child(8) { width: 130px; }
 .packing-table th:nth-child(9),
-.packing-table td:nth-child(9) { width: 130px; }
+.packing-table td:nth-child(9) { width: 150px; }
 .packing-table th:nth-child(10),
-.packing-table td:nth-child(10) { width: 120px; }
+.packing-table td:nth-child(10) { width: 130px; }
 .packing-table th:nth-child(11),
-.packing-table td:nth-child(11) { width: 80px; }
+.packing-table td:nth-child(11) { width: 120px; }
 .packing-table th:nth-child(12),
-.packing-table td:nth-child(12) { width: 64px; }
+.packing-table td:nth-child(12) { width: 80px; }
 .packing-table th:nth-child(13),
-.packing-table td:nth-child(13) { width: 28px; }
+.packing-table td:nth-child(13) { width: 64px; }
+.packing-table th:nth-child(14),
+.packing-table td:nth-child(14) { width: 28px; }
+
+.sync-status-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 130px;
+}
+
+.sync-status-cell .mini-action {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.sync-status-cell .mini-action svg {
+  width: 15px;
+  height: 15px;
+}
+
+.sync-status-cell .mini-action.is-loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
 
 .packing-table .board-label {
   min-width: 0;
