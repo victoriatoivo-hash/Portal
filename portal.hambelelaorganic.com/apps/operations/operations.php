@@ -155,6 +155,58 @@ function ops_activity_log(string $action, string $entityType, int $entityId, arr
     }
 }
 
+function ops_status_history_log(
+    string $module,
+    int $recordId,
+    string $fieldName,
+    ?string $oldValue,
+    ?string $newValue,
+    ?int $assignedEmployeeId = null,
+    array $metadata = []
+): void {
+    if ($recordId <= 0 || $oldValue === $newValue) {
+        return;
+    }
+
+    try {
+        db()->exec(
+            "CREATE TABLE IF NOT EXISTS ops_status_history (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                module VARCHAR(80) NOT NULL,
+                record_id INT NOT NULL,
+                field_name VARCHAR(80) NOT NULL DEFAULT 'status',
+                old_value VARCHAR(120) NULL,
+                new_value VARCHAR(120) NULL,
+                changed_by_employee_id INT NULL,
+                assigned_employee_id INT NULL,
+                metadata JSON NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_ops_status_record (module, record_id, field_name),
+                INDEX idx_ops_status_changed_by (changed_by_employee_id, created_at),
+                INDEX idx_ops_status_assigned (assigned_employee_id, created_at)
+            )"
+        );
+
+        $stmt = db()->prepare(
+            "INSERT INTO ops_status_history
+             (module, record_id, field_name, old_value, new_value, changed_by_employee_id, assigned_employee_id, metadata)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        );
+        $stmt->execute([
+            $module,
+            $recordId,
+            $fieldName,
+            $oldValue,
+            $newValue,
+            ops_current_employee_id(),
+            $assignedEmployeeId,
+            json_encode($metadata, JSON_UNESCAPED_SLASHES),
+        ]);
+    } catch (Throwable $e) {
+        // KPI history should never block the operational workflow.
+    }
+}
+
 function ops_is_valid_revenue_status(string $status, string $paymentStatus = ''): bool
 {
     $status = strtolower($status);

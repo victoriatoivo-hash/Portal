@@ -317,6 +317,62 @@ CREATE TABLE IF NOT EXISTS ops_report_settings (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS ops_status_history (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  module VARCHAR(80) NOT NULL,
+  record_id INT NOT NULL,
+  field_name VARCHAR(80) NOT NULL DEFAULT 'status',
+  old_value VARCHAR(120) NULL,
+  new_value VARCHAR(120) NULL,
+  changed_by_employee_id INT NULL,
+  assigned_employee_id INT NULL,
+  metadata JSON NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_ops_status_record (module, record_id, field_name),
+  INDEX idx_ops_status_changed_by (changed_by_employee_id, created_at),
+  INDEX idx_ops_status_assigned (assigned_employee_id, created_at)
+);
+
+CREATE TABLE IF NOT EXISTS ops_kpi_employee_inputs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  period_month CHAR(7) NOT NULL,
+  employee_id INT NOT NULL,
+  salary_override DECIMAL(12,2) NULL,
+  attendance_score DECIMAL(5,2) NOT NULL DEFAULT 85,
+  reliability_score DECIMAL(5,2) NOT NULL DEFAULT 85,
+  communication_score DECIMAL(5,2) NOT NULL DEFAULT 85,
+  team_score DECIMAL(5,2) NOT NULL DEFAULT 85,
+  manual_score DECIMAL(5,2) NOT NULL DEFAULT 85,
+  notes TEXT NULL,
+  updated_by INT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_ops_kpi_input (period_month, employee_id),
+  INDEX idx_ops_kpi_input_employee (employee_id),
+  FOREIGN KEY (employee_id) REFERENCES ops_employees(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS ops_kpi_weights (
+  role_group VARCHAR(40) NOT NULL,
+  component_key VARCHAR(80) NOT NULL,
+  component_label VARCHAR(160) NOT NULL,
+  weight_percent DECIMAL(5,2) NOT NULL DEFAULT 0,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (role_group, component_key)
+);
+
+CREATE TABLE IF NOT EXISTS ops_kpi_score_snapshots (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  period_month CHAR(7) NOT NULL,
+  employee_id INT NOT NULL,
+  role_group VARCHAR(40) NOT NULL,
+  overall_score DECIMAL(6,2) NOT NULL DEFAULT 0,
+  component_scores JSON NULL,
+  metrics_snapshot JSON NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_ops_kpi_snapshot_period (period_month, employee_id),
+  FOREIGN KEY (employee_id) REFERENCES ops_employees(id) ON DELETE CASCADE
+);
+
 INSERT IGNORE INTO ops_roles (role_key, name, description) VALUES
 ('owner_admin', 'Owner/Admin', 'Full access to operations, reports, financial tracking and settings'),
 ('front_desk_admin', 'Front Desk/Admin Employee', 'Customer orders, delivery coordination, supplier requests, petty cash and errors'),
@@ -353,3 +409,28 @@ INSERT IGNORE INTO ops_role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM ops_roles r CROSS JOIN ops_permissions p
 WHERE r.role_key = 'supervisor_manager'
   AND p.permission_key IN ('orders.manage', 'orders.verify', 'checklists.manage', 'checklists.complete', 'errors.log', 'reports.view', 'inventory.manage');
+
+INSERT IGNORE INTO ops_report_settings (setting_key, setting_value) VALUES
+('kpi_target_assignment_minutes', '45'),
+('kpi_target_packing_minutes', '90'),
+('kpi_target_order_completion_minutes', '240'),
+('kpi_target_packing_task_minutes', '240'),
+('kpi_target_bookkeeping_minutes', '90'),
+('kpi_target_website_upload_minutes', '120'),
+('kpi_error_penalty_points', '4'),
+('kpi_monthly_bonus_percent', '5');
+
+INSERT IGNORE INTO ops_kpi_weights (role_group, component_key, component_label, weight_percent) VALUES
+('front', 'order_flow', 'Order / walk-in completion', 20),
+('front', 'bookkeeping', 'Bookkeeping accuracy', 20),
+('front', 'website_stock', 'Website stock upload', 15),
+('front', 'tasks', 'Task completion', 15),
+('front', 'errors', 'Error score', 15),
+('front', 'communication', 'Communication / manual', 10),
+('front', 'reliability', 'Reliability / attendance', 5),
+('packer', 'order_speed', 'Order packing speed', 20),
+('packer', 'packing_productivity', 'Packing list productivity', 25),
+('packer', 'packing_accuracy', 'Packing accuracy', 20),
+('packer', 'tasks', 'Task / cleaning compliance', 15),
+('packer', 'errors', 'Error score', 15),
+('packer', 'team', 'Team contribution / manual', 5);

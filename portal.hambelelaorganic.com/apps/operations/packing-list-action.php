@@ -52,12 +52,6 @@ function packing_weight_to_kg(string $weightText): float
     return $amount;
 }
 
-function packing_monday_configured(): bool
-{
-    return defined('MONDAY_API_TOKEN') && MONDAY_API_TOKEN !== ''
-        && defined('MONDAY_PACKING_BOARD_ID') && MONDAY_PACKING_BOARD_ID !== '';
-}
-
 function packing_monday_column_values(array $row, ?string $assignedName): array
 {
     $columns = defined('MONDAY_PACKING_COLUMNS') && is_array(MONDAY_PACKING_COLUMNS) ? MONDAY_PACKING_COLUMNS : [];
@@ -1183,6 +1177,12 @@ try {
         }
 
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $historyRows = [];
+        if (in_array($field, ['assigned_employee_id', 'quantity_packed', 'website_uploaded', 'packing_website_confirmed', 'packing_status'], true)) {
+            foreach (ops_rows("SELECT id, {$allowed[$field]} AS old_value, assigned_employee_id FROM ops_packing_tasks WHERE id IN ({$placeholders})", $ids) as $row) {
+                $historyRows[(int) $row['id']] = $row;
+            }
+        }
         $params = array_merge([$value], $ids);
         $scope = '';
         if (!$canManage && !in_array($field, ['quantity_packed', 'packing_website_confirmed', 'packing_status', 'notes'], true)) {
@@ -1202,6 +1202,15 @@ try {
                 'value' => $value,
                 'changed_by' => current_user()['name'] ?? 'Unknown',
             ]);
+            if (isset($historyRows[$id])) {
+                $row = $historyRows[$id];
+                $assignedId = $field === 'assigned_employee_id'
+                    ? ((int) $value ?: null)
+                    : ((int) ($row['assigned_employee_id'] ?? 0) ?: null);
+                ops_status_history_log('packing', $id, $field, $row['old_value'] === null ? null : (string) $row['old_value'], $value === null ? null : (string) $value, $assignedId, [
+                    'changed_by' => current_user()['name'] ?? 'Unknown',
+                ]);
+            }
         }
 
         echo json_encode(['ok' => true, 'message' => 'Packing row updated.', 'updated' => $stmt->rowCount()]);

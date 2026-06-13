@@ -480,6 +480,9 @@ try {
             throw new RuntimeException('Invalid order status update.');
         }
 
+        $oldRows = ops_rows('SELECT status, assigned_packer_id FROM ops_orders WHERE id = ? LIMIT 1', [$orderId]);
+        $oldStatus = $oldRows ? (string) $oldRows[0]['status'] : null;
+        $assignedEmployeeId = $oldRows ? ((int) ($oldRows[0]['assigned_packer_id'] ?? 0) ?: null) : null;
         $set = 'status = ?, updated_at = CURRENT_TIMESTAMP';
         if ($status === 'in_progress' && ops_column_exists('ops_orders', 'packing_started_at')) {
             $set .= ', packing_started_at = COALESCE(packing_started_at, NOW())';
@@ -493,6 +496,9 @@ try {
 
         $stmt = db()->prepare('UPDATE ops_orders SET ' . $set . ' WHERE id = ?');
         $stmt->execute([$status, $orderId]);
+        ops_status_history_log('orders', $orderId, 'status', $oldStatus, $status, $assignedEmployeeId, [
+            'changed_by' => current_user()['name'] ?? 'Unknown',
+        ]);
 
         echo json_encode(['ok' => true, 'message' => 'Order status updated.']);
         exit;
@@ -530,6 +536,8 @@ try {
             if (!in_array($roleKey, ['owner_admin', 'front_desk_admin', 'supervisor_manager'], true)) {
                 throw new RuntimeException('Only front desk, supervisor or admin can change Packed by.');
             }
+            $oldRows = ops_rows('SELECT assigned_packer_id FROM ops_orders WHERE id = ? LIMIT 1', [$orderId]);
+            $oldPacker = $oldRows ? (string) ((int) ($oldRows[0]['assigned_packer_id'] ?? 0)) : null;
             $packerId = $value === '' ? null : (int) $value;
             $assignedAt = ops_column_exists('ops_orders', 'assigned_at') ? ', assigned_at = CASE WHEN ? IS NULL THEN NULL ELSE COALESCE(assigned_at, NOW()) END' : '';
             $stmt = db()->prepare('UPDATE ops_orders SET assigned_packer_id = ?' . $assignedAt . ', updated_at = CURRENT_TIMESTAMP WHERE id = ?');
@@ -538,7 +546,13 @@ try {
             } else {
                 $stmt->execute([$packerId, $orderId]);
             }
+            ops_status_history_log('orders', $orderId, 'assigned_packer_id', $oldPacker, $packerId === null ? null : (string) $packerId, $packerId, [
+                'changed_by' => current_user()['name'] ?? 'Unknown',
+            ]);
         } elseif ($field === 'status') {
+            $oldRows = ops_rows('SELECT status, assigned_packer_id FROM ops_orders WHERE id = ? LIMIT 1', [$orderId]);
+            $oldStatus = $oldRows ? (string) $oldRows[0]['status'] : null;
+            $assignedEmployeeId = $oldRows ? ((int) ($oldRows[0]['assigned_packer_id'] ?? 0) ?: null) : null;
             $set = 'status = ?, updated_at = CURRENT_TIMESTAMP';
             if ($value === 'in_progress' && ops_column_exists('ops_orders', 'packing_started_at')) {
                 $set .= ', packing_started_at = COALESCE(packing_started_at, NOW())';
@@ -551,6 +565,9 @@ try {
             }
             $stmt = db()->prepare('UPDATE ops_orders SET ' . $set . ' WHERE id = ?');
             $stmt->execute([$value, $orderId]);
+            ops_status_history_log('orders', $orderId, 'status', $oldStatus, $value, $assignedEmployeeId, [
+                'changed_by' => current_user()['name'] ?? 'Unknown',
+            ]);
         } elseif ($field === 'payment_status') {
             $stmt = db()->prepare('UPDATE ops_orders SET payment_status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
             $stmt->execute([$value, $orderId]);
@@ -605,6 +622,12 @@ try {
         }
 
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $oldRows = [];
+        if (in_array($field, ['status', 'assigned_packer_id'], true)) {
+            foreach (ops_rows("SELECT id, status, assigned_packer_id FROM ops_orders WHERE id IN ({$placeholders})", $ids) as $row) {
+                $oldRows[(int) $row['id']] = $row;
+            }
+        }
         $params = [];
         $set = $allowed[$field] . ' = ?';
         if ($field === 'assigned_packer_id') {
@@ -627,6 +650,20 @@ try {
                 'value' => $value,
                 'changed_by' => current_user()['name'] ?? 'Unknown',
             ]);
+            if ($field === 'status') {
+                $old = $oldRows[$id] ?? null;
+                ops_status_history_log('orders', $id, 'status', $old ? (string) $old['status'] : null, (string) $value, $old ? ((int) ($old['assigned_packer_id'] ?? 0) ?: null) : null, [
+                    'changed_by' => current_user()['name'] ?? 'Unknown',
+                    'bulk' => true,
+                ]);
+            }
+            if ($field === 'assigned_packer_id') {
+                $old = $oldRows[$id] ?? null;
+                ops_status_history_log('orders', $id, 'assigned_packer_id', $old ? (string) ((int) ($old['assigned_packer_id'] ?? 0)) : null, $value === null ? null : (string) $value, $value === null ? null : (int) $value, [
+                    'changed_by' => current_user()['name'] ?? 'Unknown',
+                    'bulk' => true,
+                ]);
+            }
         }
 
         echo json_encode(['ok' => true, 'message' => 'Updated ' . $changed . ' selected orders.', 'updated' => $changed]);
