@@ -8,21 +8,37 @@ on:
 jobs:
   ftp-deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      FTP_HOST: ${{ secrets.FTP_SERVER || secrets.FTP_HOST || secrets.CPANEL_FTP_SERVER || 's11745.sgp1.stableserver.net' }}
+      FTP_USER: ${{ secrets.FTP_USERNAME || secrets.FTP_USER || secrets.CPANEL_FTP_USERNAME || 'hambele1' }}
+      FTP_PASS: ${{ secrets.FTP_PASSWORD || secrets.FTP_PASS || secrets.CPANEL_FTP_PASSWORD }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Check FTP configuration
+        run: |
+          test -n "$FTP_HOST" || (echo "Missing FTP host" && exit 1)
+          test -n "$FTP_USER" || (echo "Missing FTP username" && exit 1)
+          test -n "$FTP_PASS" || (echo "Missing FTP password secret" && exit 1)
+          echo "FTP configuration found."
+
       - name: Deploy to cPanel FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
         with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
+          server: ${{ env.FTP_HOST }}
+          username: ${{ env.FTP_USER }}
+          password: ${{ env.FTP_PASS }}
           local-dir: ./portal.hambelelaorganic.com/
           server-dir: ./
+          timeout: 120000
+          log-level: standard
           exclude: |
             **/.git*
             **/.git*/**
             **/uploads/**
+            **/leave_attachments/**
+            **/error_log
             **/config.local.php
             **/default-login-accounts.txt
